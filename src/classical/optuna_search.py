@@ -84,7 +84,10 @@ def make_objective(X_train, y_train):
             "balance_strategy", ["undersample", "smote", "class_weight"]
         )
         pipe = build_pipeline(balance_strategy, C, gamma)
-        scores = cross_val_score(pipe, X_train, y_train, cv=CV, scoring="f1", n_jobs=-1)
+        # n_jobs=1: this dataset is small enough that a multiprocessing pool
+        # (n_jobs=-1) costs more in spawn overhead than it saves, and on
+        # Windows leaves noisy (harmless) joblib resource_tracker tracebacks.
+        scores = cross_val_score(pipe, X_train, y_train, cv=CV, scoring="f1", n_jobs=1)
         return float(scores.mean())
 
     return objective

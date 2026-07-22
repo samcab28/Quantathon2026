@@ -26,6 +26,7 @@ results/
   metrics/            tablas de métricas, resultados de CV y de ablación (csv/json)
 report/               informe técnico (PDF ≤ 8 páginas) y declaración de SDK (≤200 palabras)
 slides/               presentación de 5 minutos
+scripts/              scripts de PowerShell: setup, ejecución y reset del entorno
 requirements.txt      dependencias para reproducibilidad
 ```
 
@@ -34,14 +35,19 @@ Cada carpeta tiene su propio `README.md` explicando qué debe contener.
 ## Punto de entrada de reproducibilidad
 
 El reto exige **un único script o notebook de punto de entrada** que reproduzca
-cada figura y cifra reportada. Mientras se construye el pipeline, ese rol lo
-cumple la **secuencia de notebooks numerados** en `notebooks/` (`01_eda` →
-`02_classical_baseline` → `03_quantum_kernel` → `04_feature_map_study`), cada
-uno llamando a funciones de `src/` sin duplicar lógica. Al cerrar el proyecto
-se añadirá un `notebooks/00_run_all.ipynb` (o `main.py`) que ejecute los
-notebooks 01-04 en orden como único punto de entrada final. Todo lo que se
-guarde en `results/` debe poder regenerarse así, desde un entorno limpio
-instalado con `requirements.txt`.
+cada figura y cifra reportada. Ese punto de entrada es
+**[`scripts/run_all.ps1`](scripts/run_all.ps1)**: crea/actualiza `.venv`,
+instala `requirements.txt` y ejecuta en orden todos los `notebooks/NN_*.ipynb`
+(`01_eda` → `02_classical_baseline` → `03_quantum_kernel` → `04_feature_map_study`
+a medida que se van creando), cada uno llamando a funciones de `src/` sin
+duplicar lógica. Ver [`scripts/README.md`](scripts/README.md) para el resto de
+scripts (`setup.ps1`, `run_notebooks.ps1`, `activate.ps1`, `reset.ps1`). Para
+volver a un estado limpio y repetir todo desde cero cuantas veces se quiera:
+
+```powershell
+.\scripts\reset.ps1 -Force
+.\scripts\run_all.ps1
+```
 
 ## Estado de los datos
 

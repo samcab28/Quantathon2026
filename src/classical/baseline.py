@@ -38,8 +38,11 @@ def load_processed():
 
 
 def train_and_evaluate(X_train, y_train, X_test, y_test):
+    # n_jobs=1: for a dataset this small, spawning a multiprocessing pool
+    # (n_jobs=-1) costs more than it saves, and on Windows it leaves behind
+    # harmless but noisy joblib resource_tracker tracebacks at teardown.
     grid = GridSearchCV(
-        SVC(kernel="rbf"), PARAM_GRID, cv=5, scoring="f1", n_jobs=-1
+        SVC(kernel="rbf"), PARAM_GRID, cv=5, scoring="f1", n_jobs=1
     )
     grid.fit(X_train, y_train)
     best_model = grid.best_estimator_
