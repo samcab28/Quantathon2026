@@ -1,0 +1,44 @@
+{
+  "seed": 42,
+  "test_size": 0.2,
+  "balance_method": "undersample",
+  "train_size_before_balance": 2620,
+  "train_size_after_balance": 2044,
+  "test_size_n": 656,
+  "class_counts_train_before_balance": {
+    "0": 1598,
+    "1": 1022
+  },
+  "class_counts_train_after_balance": {
+    "0": 1022,
+    "1": 1022
+  },
+  "class_counts_test": {
+    "0": 400,
+    "1": 256
+  },
+  "imputation_medians_by_class": {
+    "0": {
+      "ph": 7.013539744397472,
+      "Hardness": 196.5954140214223,
+      "Solids": 20717.10506073064,
+      "Chloramines": 7.103510578912478,
+      "Sulfate": 333.1483176590248,
+      "Conductivity": 424.47130181708735,
+      "Organic_carbon": 14.215790896505126,
+      "Trihalomethanes": 66.28481945089318,
+      "Turbidity": 3.975469385069254
+    },
+    "1": {
+      "ph": 7.063646975622253,
+      "Hardness": 197.54220207030636,
+      "Solids": 21150.782365789513,
+      "Chloramines": 7.1449952666023595,
+      "Sulfate": 332.9363746084408,
+      "Conductivity": 425.51786735389294,
+      "Organic_carbon": 14.202889133733294,
+      "Trihalomethanes": 66.68609327475363,
+      "Turbidity": 3.9661262395878287
+    }
+  }
+}

@@ -1,0 +1,11 @@
+numpy
+pandas
+scikit-learn
+imbalanced-learn
+matplotlib
+seaborn
+jupyter
+pytket
+pytket-quantinuum
+# guppylang  # descomentar si el equipo usa Guppy en vez de / además de Pytket
+# kaggle     # descomentar solo si se decide automatizar la descarga vía API
