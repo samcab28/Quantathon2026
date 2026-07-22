@@ -5,6 +5,7 @@ imbalanced-learn
 matplotlib
 seaborn
 jupyter
+optuna
 pytket
 pytket-quantinuum
 # guppylang  # descomentar si el equipo usa Guppy en vez de / además de Pytket

@@ -24,7 +24,15 @@ mano ni se pega aquí manualmente).
 
 ## Estado actual
 
-`fig_confusion_matrix_classical.png` generado por
-`notebooks/02_classical_baseline.ipynb`. Pendiente: diagrama de circuito,
-heatmap(s) de kernel, matriz de confusión de la QSVM, comparativas y gráfico
-de escalado.
+Generadas por `notebooks/02_classical_baseline.ipynb`:
+
+- `fig_confusion_matrix_classical.png` / `fig_confusion_matrix_optuna.png` —
+  matrices de confusión del baseline de grilla y del optimizado con Optuna.
+- `fig_decision_boundary_grid_pca.png` / `fig_decision_boundary_optuna_pca.png`
+  — proyección PCA 2D de todos los puntos de test con la frontera de decisión
+  **real** de cada modelo (evaluada en 9D, mapeada a la malla 2D vía
+  `PCA.inverse_transform`; ver `src/utils/plotting.py`). PC1+PC2 explican solo
+  ~28% de la varianza — aproximación visual, no evidencia cuantitativa.
+
+Pendiente: diagrama de circuito, heatmap(s) de kernel, matriz de confusión de
+la QSVM, comparativas y gráfico de escalado.

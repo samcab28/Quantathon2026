@@ -54,10 +54,18 @@ para volver a obtenerlo desde cero). No se sube a git.
 - [x] Entorno virtual `.venv` + `requirements.txt` instalados.
 - [x] `notebooks/01_eda.ipynb` — EDA del CSV crudo, ejecutado y verificado.
 - [x] `notebooks/02_classical_baseline.ipynb` — ejecuta `src/data_prep/prepare_data.py`
-      (split 80/20, imputación por mediana por clase, estandarización, balanceo
-      por submuestreo, subsets cuánticos 16/32/64) y `src/classical/baseline.py`
-      (SVM-RBF, `GridSearchCV` 5-fold sobre la grilla completa). Resultado en
-      test: accuracy 0.60, F1 0.496 (`C=10, gamma=auto`).
+      (split 80/20, imputación por mediana por clase, estandarización, subsets
+      cuánticos 16/32/64) y dos clasificadores clásicos:
+      - `src/classical/baseline.py` — SVM-RBF, `GridSearchCV` 5-fold sobre la
+        grilla completa (requisito de rúbrica). Test: accuracy 0.60, F1 0.496
+        (`C=10, gamma=auto`).
+      - `src/classical/optuna_search.py` — baseline extendido: balanceo dentro
+        de cada fold de CV (en vez de antes, evita fuga) + búsqueda bayesiana
+        con Optuna (60 trials) sobre C/gamma/estrategia de balanceo. Test:
+        accuracy 0.622, **F1 0.512** (`C≈1.44, gamma=auto, class_weight`) — este
+        es el modelo a usar como referencia "clásico más fuerte" frente a la QSVM.
+      - `src/utils/plotting.py` — proyección PCA 2D con la frontera de decisión
+        real de cada modelo (`results/figures/fig_decision_boundary_*_pca.png`).
 - [ ] `notebooks/03_quantum_kernel.ipynb` — mapa de características + matriz de
       kernel + diagrama de circuito + heatmap (Parte 3, siguiente paso).
 - [ ] `notebooks/04_feature_map_study.ipynb` — estudio comparativo de mapas

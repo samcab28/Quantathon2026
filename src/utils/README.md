@@ -19,3 +19,15 @@ duplicar lógica entre el pipeline clásico y el cuántico.
   `results/figures/`.
 - **Semillas / reproducibilidad**: fijación centralizada de semillas
   aleatorias usadas por todo el pipeline.
+
+## Estado actual
+
+Implementado en [`plotting.py`](plotting.py): `plot_2d_decision_boundary(model,
+X, y, title, out_path)` — proyecta datos de alta dimensión a 2D con PCA y
+dibuja la frontera de decisión **real** del modelo ya entrenado (evalúa
+`decision_function`/`predict_proba` sobre una malla en el plano PC1-PC2,
+reconstruida a la dimensión original vía `PCA.inverse_transform`), no la de un
+modelo sustituto entrenado directamente en 2D. Funciona igual con un `SVC` o
+con un `imblearn.pipeline.Pipeline` (los samplers se ignoran en predicción).
+Usado en `notebooks/02_classical_baseline.ipynb`; pensado para reutilizarse
+también con la QSVM.

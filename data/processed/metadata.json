@@ -40,5 +40,6 @@
       "Trihalomethanes": 66.68609327475363,
       "Turbidity": 3.9661262395878287
     }
-  }
+  },
+  "note": "X_train_raw/y_train_raw are imputed+scaled but NOT balanced; use them with in-pipeline resampling for model selection. X_train/y_train are pre-balanced (this run: undersample) for the fixed-grid rubric baseline."
 }

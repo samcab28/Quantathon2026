@@ -8,6 +8,16 @@ Steps (in leakage-safe order):
   5. Class balancing on the training set only (undersampling or SMOTE).
   6. Selection of a balanced 16-64 sample subset from training data for the quantum experiment.
 
+Two versions of the training set are persisted:
+  - X_train_raw.csv / y_train_raw.csv: imputed + standardized, NOT balanced.
+    Use this with a resampler folded INSIDE a cross-validation pipeline
+    (e.g. imblearn.pipeline.Pipeline) so balancing never leaks information
+    across CV folds. This is what src/classical/optuna_search.py uses.
+  - X_train.csv / y_train.csv: the same data balanced once upfront
+    (undersampling by default). Kept for the exact grid-search baseline
+    required by the rubric (Part 2) and for quantum subset selection, both
+    of which assume an already-balanced, fixed-size training set.
+
 Run as a script to regenerate everything under data/processed/ and data/quantum_subset/:
     python -m src.data_prep.prepare_data
 """
@@ -109,6 +119,14 @@ def main(balance_method: str = "undersample", quantum_sizes=(16, 32, 64)):
     X_train, X_test, y_train, y_test = split(df)
     X_train, X_test, medians = impute_median_by_class(X_train, y_train, X_test, y_test)
     X_train, X_test, scaler = standardize(X_train, X_test)
+
+    # Unbalanced version: imputed + scaled only. Balancing must happen inside
+    # a per-fold CV pipeline for any model-selection procedure (see
+    # src/classical/optuna_search.py) to avoid leaking resampled information
+    # across folds.
+    X_train.to_csv(PROCESSED_DIR / "X_train_raw.csv", index=False)
+    y_train.to_csv(PROCESSED_DIR / "y_train_raw.csv", index=False)
+
     X_train_bal, y_train_bal = balance(X_train, y_train, method=balance_method)
 
     X_train_bal.to_csv(PROCESSED_DIR / "X_train.csv", index=False)
@@ -127,6 +145,12 @@ def main(balance_method: str = "undersample", quantum_sizes=(16, 32, 64)):
         "class_counts_train_after_balance": y_train_bal.value_counts().to_dict(),
         "class_counts_test": y_test.value_counts().to_dict(),
         "imputation_medians_by_class": medians,
+        "note": (
+            "X_train_raw/y_train_raw are imputed+scaled but NOT balanced; "
+            "use them with in-pipeline resampling for model selection. "
+            "X_train/y_train are pre-balanced (this run: "
+            f"{balance_method}) for the fixed-grid rubric baseline."
+        ),
     }
     with open(PROCESSED_DIR / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2, default=str)

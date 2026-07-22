@@ -26,8 +26,16 @@ regenera ejecutando el pipeline.
 ## Estado actual
 
 Generado por `src/data_prep/prepare_data.py`, ejecutado desde
-`notebooks/02_classical_baseline.ipynb`. Contiene `X_train.csv` (2044 filas,
-balanceado 1022/1022 por submuestreo), `X_test.csv` (656 filas, distribución
-original 400 no potable / 256 potable), `y_train.csv`, `y_test.csv` y
-`metadata.json` (semilla=42, medianas de imputación por clase, conteos antes/
-después de balancear).
+`notebooks/02_classical_baseline.ipynb`. Contiene dos versiones del train set:
+
+- `X_train_raw.csv` / `y_train_raw.csv` — imputado y estandarizado, **sin
+  balancear** (2620 filas). Úsese con un resampler dentro de un pipeline de
+  CV (ver `src/classical/optuna_search.py`), nunca balanceando antes del
+  split de CV.
+- `X_train.csv` / `y_train.csv` — el mismo train, balanceado una vez por
+  submuestreo (2044 filas, 1022/1022). Se usa para el baseline de grilla fija
+  (Parte 2, requisito de rúbrica) y para la selección del subset cuántico.
+
+Más `X_test.csv` (656 filas, distribución original 400 no potable / 256
+potable), `y_test.csv`, y `metadata.json` (semilla=42, medianas de imputación
+por clase, conteos antes/después de balancear).

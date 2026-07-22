@@ -11,10 +11,15 @@ También sirven para EDA y prototipado antes de mover código a `src/`.
       confirma shape (3276×10), NaNs por columna (pH 491, Sulfato 781,
       Trihalometanos 162) y balance de clases (~61/39%) frente a lo esperado
       por el enunciado.
-- [x] `02_classical_baseline.ipynb` — llama a `src/data_prep/prepare_data.main()`
-      y a `src/classical/baseline.train_and_evaluate(...)`. Ejecutado; regenera
-      `data/processed/`, `data/quantum_subset/`, `results/metrics/classical_baseline.json`
-      y `results/figures/fig_confusion_matrix_classical.png`.
+- [x] `02_classical_baseline.ipynb` — llama a `src/data_prep/prepare_data.main()`,
+      `src/classical/baseline.train_and_evaluate(...)` (baseline de grilla fija,
+      Parte 2) y `src/classical/optuna_search.main(...)` (baseline extendido:
+      balanceo dentro de CV + búsqueda bayesiana con Optuna, F1 test 0.496 →
+      0.512), más `src/utils/plotting.plot_2d_decision_boundary(...)` para la
+      proyección PCA 2D con la frontera de decisión real de cada modelo.
+      Ejecutado; regenera `data/processed/`, `data/quantum_subset/`, ambos
+      `results/metrics/classical_*.json` y las figuras de confusión/frontera
+      en `results/figures/`.
 - [ ] `03_quantum_kernel.ipynb` — mapa de características + matriz de kernel
       cuántico (Parte 3, próximo paso), llamando a `src/quantum/`.
 - [ ] `04_feature_map_study.ipynb` — comparación ZZFeatureMap / PauliFeatureMap /

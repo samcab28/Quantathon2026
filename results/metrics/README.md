@@ -22,7 +22,12 @@ informe técnico (`report/`) como las diapositivas (`slides/`).
 
 ## Estado actual
 
-`classical_baseline.json` generado por `notebooks/02_classical_baseline.ipynb`
-(vía `src/classical/baseline.py`): mejores hiperparámetros, F1 de CV, y las
-cinco métricas sobre el test set. Pendiente: métricas de la QSVM (Parte 3),
-tabla del estudio de mapas (Parte 4) y resultados de escalado.
+- `classical_baseline.json` — baseline requerido (Parte 2): grid search 3×3,
+  vía `src/classical/baseline.py`. F1 test = 0.496.
+- `classical_optuna.json` — baseline extendido/optimizado: Optuna (60 trials)
+  + balanceo dentro de CV, vía `src/classical/optuna_search.py`. F1 test =
+  0.512 (referencia "clásico más fuerte" para comparar contra la QSVM).
+
+Ambos generados por `notebooks/02_classical_baseline.ipynb`. Pendiente:
+métricas de la QSVM (Parte 3), tabla del estudio de mapas (Parte 4) y
+resultados de escalado.
