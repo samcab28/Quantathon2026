@@ -1,0 +1,14 @@
+# --- Recolector de datos (main.py, paquete sources/) ---
+requests>=2.31
+pandas>=2.0
+openpyxl>=3.1
+
+# --- Modelo QSVM (paquete qsvm/) ---
+numpy>=1.26
+scikit-learn>=1.3        # SVC con kernel precomputado (el clasificador del QSVM)
+matplotlib>=3.7          # heatmap de la matriz de kernel (opcional)
+
+# Stack cuántico de Quantinuum (emulador H2, dos backends intercambiables)
+pytket>=2.0             # construcción de los circuitos del feature map
+pytket-quantinuum>=0.30  # backend directo (QuantinuumBackend, device H2-1E)
+qnexus>=0.7             # backend vía plataforma Nexus (device H2-Emulator)
