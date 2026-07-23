@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+import numpy as np
 import yaml
 
 from classical_model import (
@@ -13,11 +14,15 @@ from classical_model import (
 )
 from prepare_data import data_summary, load_data
 from quantum_model import (
+    balanced_subset,
     choose_feature_map,
     compare_models,
+    kernel_diagnostics,
     preprocess_subset,
+    quantum_kernel,
     save_circuit_example,
     save_comparison_plot,
+    save_kernel_heatmap,
 )
 
 
@@ -100,9 +105,34 @@ def run(config_path="configs/full.yaml", quick=False):
         output,
     )
 
+    print("4. Guardando matriz de kernel y diagnósticos...")
+    X_kernel, y_kernel = balanced_subset(
+        X_train,
+        y_train,
+        max(config["subset_sizes"]),
+        config["seed"],
+    )
+    X_kernel_scaled, _ = preprocess_subset(X_kernel, X_kernel)
+    kernel_matrix = quantum_kernel(
+        X_kernel_scaled,
+        name=selected_map,
+        repetitions=config["circuit_repetitions"],
+    )
+    labels = y_kernel.to_numpy()
+    np.save(output / "kernel_matrix.npy", kernel_matrix)
+    save_kernel_heatmap(
+        kernel_matrix,
+        labels,
+        output / "kernel_matrix.png",
+        f"Kernel cuántico — mapa {selected_map} (n={len(labels)})",
+    )
+    diagnostics = kernel_diagnostics(kernel_matrix, labels)
+
     summary = {
         "data": data_summary(config["data_path"]),
         "selected_feature_map": selected_map,
+        "n_qubits": int(X_kernel_scaled.shape[1]),
+        "kernel_diagnostics": diagnostics,
         "classical": classical_metrics,
         "comparison_mean": comparison.groupby(
             ["model", "subset_size"]

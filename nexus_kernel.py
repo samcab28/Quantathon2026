@@ -63,6 +63,30 @@ def list_devices():
     return qnx.devices.get_all().df()
 
 
+_AER_CONFIGS = {
+    "aer_simulator": "AerConfig",
+    "aer_simulator_statevector": "AerStateConfig",
+    "aer_simulator_unitary": "AerUnitaryConfig",
+}
+
+
+def _backend_config(device_name):
+    """Elige la clase de `BackendConfig` de qnexus según `device_name`.
+
+    `QuantinuumConfig(device_name=...)` sólo es válido para backends de la
+    familia Quantinuum (H1-*, H2-*, Helios-*). Pasarle un nombre de otra
+    familia (p.ej. "aer_simulator") hace que Nexus busque una pasada de
+    compilación de Quantinuum para ese nombre y falle con
+    "Error retrieving compilation pass: <device_name>".
+    """
+    import qnexus as qnx
+
+    config_name = _AER_CONFIGS.get(device_name)
+    if config_name is not None:
+        return getattr(qnx, config_name)()
+    return qnx.QuantinuumConfig(device_name=device_name)
+
+
 def quantum_kernel_nexus(
     X_left,
     X_right=None,
@@ -92,7 +116,7 @@ def quantum_kernel_nexus(
 
     project = qnx.projects.get_or_create(name=project_name)
     qnx.context.set_active_project(project)
-    config = qnx.QuantinuumConfig(device_name=device_name)
+    config = _backend_config(device_name)
 
     pairs = _pairs(len(X_left), len(X_right), symmetric)
     label = job_label or datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -123,8 +147,8 @@ def quantum_kernel_nexus(
     )
 
     kernel = np.zeros((len(X_left), len(X_right)))
-    for (i, j), result_ref in zip(pairs, results):
-        counts = result_ref.download_result().get_counts()
+    for (i, j), result in zip(pairs, results):
+        counts = result.get_counts()
         probability = zero_outcome_probability(counts, n_qubits)
         kernel[i, j] = probability
         if symmetric:

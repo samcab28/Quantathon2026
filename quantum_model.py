@@ -269,6 +269,71 @@ def compare_models(
     return pd.DataFrame(rows)
 
 
+def kernel_diagnostics(kernel, labels):
+    """Diagnósticos cuantitativos de la geometría del kernel (Parte 4).
+
+    Un buen mapa deja las muestras de la misma clase con solapamiento alto y
+    las de clases distintas con solapamiento bajo: `separation` > 0 y una
+    alineación kernel-objetivo alta indican estructura útil para el SVM.
+    """
+    kernel = np.asarray(kernel, dtype=float)
+    labels = np.asarray(labels)
+    off_diagonal = ~np.eye(len(kernel), dtype=bool)
+    same_class = (labels[:, None] == labels[None, :]) & off_diagonal
+    other_class = (labels[:, None] != labels[None, :]) & off_diagonal
+
+    target = np.where(labels[:, None] == labels[None, :], 1.0, -1.0)
+    alignment = float(
+        (kernel * target).sum()
+        / (np.linalg.norm(kernel) * np.linalg.norm(target))
+    )
+
+    eigenvalues = np.linalg.eigvalsh((kernel + kernel.T) / 2)
+    positive = eigenvalues[eigenvalues > 1e-12]
+    if len(positive):
+        weights = positive / positive.sum()
+        effective_rank = float(np.exp(-(weights * np.log(weights)).sum()))
+    else:
+        effective_rank = 0.0
+
+    within = float(kernel[same_class].mean()) if same_class.any() else 0.0
+    between = float(kernel[other_class].mean()) if other_class.any() else 0.0
+    return {
+        "within_class_mean": within,
+        "between_class_mean": between,
+        "separation": within - between,
+        "kernel_target_alignment": alignment,
+        "off_diagonal_mean": float(kernel[off_diagonal].mean()),
+        "min_eigenvalue": float(eigenvalues.min()),
+        "effective_rank": effective_rank,
+    }
+
+
+def save_kernel_heatmap(kernel, labels, output_path, title):
+    """Mapa de calor de la matriz de kernel (entregable de la Parte 3).
+
+    Las muestras se ordenan por clase para que la estructura de bloques
+    (clase 0 arriba-izquierda, clase 1 abajo-derecha) sea visible.
+    """
+    kernel = np.asarray(kernel, dtype=float)
+    labels = np.asarray(labels)
+    order = np.argsort(labels, kind="stable")
+    ordered = kernel[np.ix_(order, order)]
+    boundary = int((labels[order] == 0).sum())
+
+    fig, ax = plt.subplots(figsize=(5.5, 4.5))
+    image = ax.imshow(ordered, cmap="viridis", vmin=0, vmax=1)
+    ax.axhline(boundary - 0.5, color="white", linewidth=1.2)
+    ax.axvline(boundary - 0.5, color="white", linewidth=1.2)
+    ax.set_title(title)
+    ax.set_xlabel("muestra j (ordenadas por clase)")
+    ax.set_ylabel("muestra i")
+    fig.colorbar(image, ax=ax, label=r"$K_{ij}=|\langle\phi_i|\phi_j\rangle|^2$")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=160)
+    plt.close(fig)
+
+
 def save_circuit_example(values, feature_map, repetitions, output_dir):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
