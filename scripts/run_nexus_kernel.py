@@ -188,6 +188,10 @@ def main():
     args = parse_args()
 
     if args.list_devices:
+        import pandas as pd
+
+        pd.set_option("display.max_colwidth", None)
+        pd.set_option("display.width", None)
         nexus_kernel.login()
         print(nexus_kernel.list_devices())
         return
