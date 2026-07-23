@@ -1,31 +1,12 @@
-name: full
+data_path: data/raw/water_potability.csv
+output_dir: results/output
+test_size: 0.20
+seed: 20260802
+cv_folds: 5
 
-data:
-  raw_path: data/raw/water_potability.csv
-  test_size: 0.20
-  split_seed: 20260802
-  subset_sizes: [16, 32, 64]
-  subset_repeats: 5
-  subset_seed_start: 20261000
+feature_maps: [zz, pauli, custom]
+circuit_repetitions: 2
+map_repeats: 3
 
-classical:
-  cv_splits: 5
-  cv_seed: 20260723
-  optuna_trials: 30
-  nested_outer_splits: 5
-  bootstrap_iterations: 2000
-  primary_metric: f1
-  accelerator: cuda
-
-quantum:
-  enabled: true
-  feature_maps: [zz, pauli, custom]
-  repetitions: 2
-  entanglement: linear
-  feature_clip: 3.0
-  angle_scale: 1.0
-  c_grid: [0.1, 1.0, 10.0]
-  cv_splits: 4
-  psd_tolerance: 1.0e-10
-  psd_epsilon: 1.0e-8
-  backend: pytket-statevector
+subset_sizes: [16, 32, 64]
+repeats: 5
