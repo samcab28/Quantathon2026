@@ -17,3 +17,4 @@ output/pdf/*.synctex.gz
 results/runs/*/cache/
 results/runs/final-20260729-lockbox/
 results/runs/smoke-validation/
+results/output/
