@@ -36,7 +36,25 @@ def pytket_kernel_values(pairs_i, pairs_j, n_qubits, shots_por_par,
     circuits = [build_overlap_circuit(xi, xj, n_qubits, entrelazar, reps)
                 for xi, xj in zip(pairs_i, pairs_j)]
     # compilar al conjunto de compuertas/topología del device
-    compiled = backend.get_compiled_circuits(circuits)
+    try:
+        compiled = backend.get_compiled_circuits(circuits)
+    except Exception as e:
+        # device inválido -> listar los disponibles para que el usuario elija
+        if "DeviceNotAvailable" in type(e).__name__ or "not available" in str(e).lower():
+            try:
+                infos = QuantinuumBackend.available_devices()
+                nombres = [getattr(i, "device_name", None) or getattr(i, "name", "?")
+                           for i in infos]
+                raise RuntimeError(
+                    f"El device '{device_name}' no está disponible en tu cuenta.\n"
+                    f"Devices disponibles: {nombres}\n"
+                    f"Reintenta con:  python run_qsvm.py --device <NOMBRE>"
+                ) from e
+            except RuntimeError:
+                raise
+            except Exception:
+                pass
+        raise
     # process_circuits dispara el login la 1a vez
     handles = backend.process_circuits(compiled, n_shots=shots_por_par)
 

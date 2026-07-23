@@ -1,73 +1,16 @@
-# Aqua Collector — recolector multi-país de calidad de agua
+# QSVM cuántico — potabilidad del agua (Challenge 2, Partes 3–4)
 
-Herramienta base para el Quantathon CR 2026 (Track 02). Recolecta datos reales
-de calidad de agua de portales oficiales latinoamericanos y los estandariza a un
-esquema común, listo para alimentar el modelo de ML/QML.
+Contribución al Quantathon CR 2026. Entrena y evalúa **únicamente un SVM con
+kernel cuántico (QSVM)**; la comparación clásica ya vive en `src/classical/`
+del repo del equipo. El kernel `K_ij = |⟨φ(xᵢ)|φ(xⱼ)⟩|²` se calcula en el
+**emulador H2 de Quantinuum**, con **dos backends intercambiables**:
 
-## Instalación
+- `pytket-quantinuum` — `QuantinuumBackend(device_name="H2-1E")` (default)
+- `qnexus` — plataforma Quantinuum Nexus (`device_name="H2-Emulator"`)
 
-```bash
-pip install -r requirements.txt
-```
-
-## Uso
-
-```bash
-# 1) Ver países disponibles
-python main.py --list
-
-# 2) La PRIMERA vez con un país: ver las columnas crudas de la fuente
-python main.py --country colombia --inspect
-
-# 3) Recolectar y mostrar en terminal
-python main.py --country colombia --year 2019 --limit 200
-
-# 4) Guardar en Excel o CSV
-python main.py --country colombia --region ANTIOQUIA --output excel --file antioquia.xlsx
-python main.py --country colombia --year 2019 --output csv --file datos.csv
-```
-
-## Estructura
-
-```
-aqua_collector/
-├── main.py            # CLI (elige país, filtros, salida terminal/excel/csv)
-├── schema.py          # esquema común + regla de etiqueta (IRCA -> potable 0/1)
-├── requirements.txt
-└── sources/
-    ├── __init__.py    # registro de países
-    ├── base.py        # clase base (fetch_raw + normalize)
-    ├── colombia.py    # FUNCIONAL: SIVICAP/INS vía API Socrata
-    └── stubs.py       # plantillas Brasil y México (por completar)
-```
-
-## Pendiente / para el equipo
-
-1. **Confirmar columnas de Colombia.** Corre `--inspect` una vez y ajusta el
-   `COLUMN_MAP` en `sources/colombia.py` con los nombres reales de la API.
-   (Los valores actuales son la mejor conjetura y están marcados `# TODO`.)
-2. **Brasil** (`stubs.py::BrazilSource`): implementar descarga del SISAGUA y
-   derivar la etiqueta con la norma brasileña (no trae IRCA).
-3. **México** (`stubs.py::MexicoSource`): descargar CSV de RENAMECA/SINA.
-   Ojo: es agua superficial, no de red — no mezclar sin aclararlo.
-4. **Costa Rica**: los datos del LNA/AyA están en PDF, no en portal descargable.
-   Requiere un extractor de PDF aparte (dejar para el final si sobra tiempo).
-
-## Nota sobre las etiquetas
-
-Colombia trae el IRCA ya calculado, así que la potabilidad sale directa:
-`IRCA <= 5` = potable, `IRCA > 5` = no potable (Resolución 2115/2007).
-Países sin índice oficial derivan la etiqueta aplicando umbrales OMS o la norma
-local dentro de su `normalize()`.
-
----
-
-# Modelo QSVM (potabilidad con kernel cuántico)
-
-El paquete `qsvm/` entrena y evalúa **únicamente un SVM con kernel cuántico
-(QSVM)**. El kernel se calcula **siempre en Quantinuum Nexus** (device `H1-1E`).
-No entrena ningún modelo clásico. Es la segunda mitad del pipeline: consume el
-CSV del recolector (o el dataset de Kaggle) con una columna `Potability` (0/1).
+Consume los datos **ya preparados** por el equipo (imputados, estandarizados,
+balanceados): los subconjuntos cuánticos de `data/quantum_subset/` para train y
+`data/processed/X_test.csv` para test.
 
 ## Instalación
 
@@ -75,83 +18,86 @@ CSV del recolector (o el dataset de Kaggle) con una columna `Potability` (0/1).
 pip install -r requirements.txt
 ```
 
-Necesitas además una **cuenta activa de Quantinuum Nexus** para autenticar.
+Usa **Python 3.12** (donde están instaladas las librerías), no el 3.14.
+Necesitas una **cuenta de Quantinuum** para autenticar al enviar circuitos.
 
 ## Uso rápido
 
 ```bash
-# 1) Generar un dataset de respaldo (esquema Kaggle) si aún no hay datos reales
-python -m qsvm.make_dataset            # crea data/water_potability.csv
+# Corrida por defecto: backend pytket-quantinuum, subset 16, device H2-1E
+python run_qsvm.py
 
-# 2) Correr el QSVM (rápido, para verificar de punta a punta)
-python -m qsvm.run --n-train 8 --n-test 8 --shots 256
+# Validar circuitos sin gastar (syntax checker, gratis)
+python run_qsvm.py --device H2-1SC --n-subset 16 --n-test 8
 
-# 3) Corrida "de verdad" para el informe
-python -m qsvm.run --n-train 16 --n-test 30 --shots 512
+# Usar el backend Nexus en vez de pytket-quantinuum
+python run_qsvm.py --backend qnexus
 
-# 4) Subir complejidad: feature map ZZ con entanglement y 2 repeticiones
-python -m qsvm.run --entrelazar --reps 2
+# Estudio de escalado (rúbrica): repetir con 16, 32 y 64
+python run_qsvm.py --n-subset 32 --n-test 40 --shots 512
+python run_qsvm.py --n-subset 64 --n-test 40 --shots 512
 
-# 5) Usar el CSV real del recolector (debe tener columna 'Potability')
-python -m qsvm.run --data data/colombia.csv --features ph Sulfate Chloramines Solids
+# Feature map ZZ con entanglement y 2 repeticiones
+python run_qsvm.py --entrelazar --reps 2
 
-# 6) Correr en hardware real en vez del emulador
-python -m qsvm.run --device H1-1 --n-train 8 --n-test 8
+# Evaluar contra TODO el test (caro): --n-test 0
+python run_qsvm.py --n-test 0
 ```
 
-## Backend: Quantinuum Nexus
+`run_qsvm.py` (raíz) equivale a `python -m qsvm.run`.
 
-El kernel se ejecuta en Nexus. Devices:
-- `H1-1E` / `H2-Emulator` — **emuladores** (default, recomendado para desarrollar)
-- `H1-1` / `H2-1` — **hardware real** (gasta créditos y hace cola)
+## Backends (ambos ejecutan en el emulador H2)
 
-**Login**: la primera corrida abre el navegador para autenticar en Nexus. El
-token queda cacheado en `~/.qnx/auth/`. Para entornos headless usa
-`qnx.login_with_token(...)` (ver docstring en `qsvm/nexus_backend.py`).
+| Backend | Librería | Device default | Login |
+|---------|----------|----------------|-------|
+| `pytket-quantinuum` (default) | `QuantinuumBackend` | `H2-1E` | perezoso, en la 1a llamada |
+| `qnexus` | plataforma Nexus | `H2-Emulator` | navegador, token en `~/.qnx/auth/` |
 
-En Nexus cada circuito es estático, así que el backend construye **un circuito
-pytket por par** (i, j) y los envía todos como lista en un solo
-`start_execute_job` (ver `qsvm/nexus_backend.py`).
+Devices: `H2-1E`/`H2-2E` (emulador), `H2-1SC` (syntax checker, **gratis**, para
+validar circuitos sin gastar), `H2-1`/`H2-2` (hardware real, gasta créditos).
 
-Salidas en `outputs/`: `K_train.npy` + `K_train.png` (heatmap de la matriz de
-kernel, entregable de la rúbrica) y `metrics.json` (métricas del QSVM).
+Cada circuito es estático, así que se construye **un circuito pytket por par**
+(i, j) y se envían todos juntos. El feature map por defecto es *angle encoding*
+(una `Rz` por qubit); con `--entrelazar` se añade una etapa `ZZ` con
+entanglement lineal.
 
-## Cómo funciona el kernel cuántico
-
-`K_ij = |⟨φ(x_i)|φ(x_j)⟩|²`. Se calcula aplicando `U(x_i)` seguido de
-`U(x_j)†` y midiendo: la probabilidad de leer `|00…0⟩` es exactamente `K_ij`.
-El feature map por defecto es *angle encoding* (una rotación `Rz` por qubit);
-con `--entrelazar` se añade una etapa `ZZ` con entanglement.
+Salidas en `outputs/`: `K_train_subsetN.npy` + `.png` (heatmap del kernel,
+entregable de la rúbrica) y `qsvm_metrics.json` (métricas del QSVM).
 
 ## Estructura del paquete
 
 ```
 qsvm/
-├── data.py            # Paso 1: carga, imputa por clase, escala, split
-├── nexus_backend.py   # Paso 2: circuitos pytket + matriz K en Quantinuum Nexus
+├── data.py            # Paso 1: carga subset cuántico (train) + test del equipo
+├── circuits.py        # feature map en Pytket (compartido por ambos backends)
+├── backend_pytket.py  # Backend A: pytket-quantinuum (QuantinuumBackend)
+├── nexus_backend.py   # Backend B: qnexus (plataforma Nexus)
+├── kernel.py          # Paso 2: ensambla la matriz K, despacha al backend
 ├── model.py           # Paso 3: QSVM (SVC con kernel precomputado)
-├── metrics.py         # métricas de evaluación (exactitud, precisión, recall, F1)
-├── run.py             # orquesta los 3 pasos (python -m qsvm.run)
-└── make_dataset.py    # genera dataset de respaldo tipo Kaggle
+├── metrics.py         # métricas (exactitud, precisión, recall, F1)
+└── run.py             # orquestador (python -m qsvm.run)
 ```
 
-## Parámetros clave (`python -m qsvm.run --help`)
+## Parámetros (`python -m qsvm.run --help`)
 
 | Flag | Qué hace | Default |
 |------|----------|---------|
-| `--n-qubits` / `--features` | features usadas (1 por qubit) | 4 |
-| `--n-train` | tamaño del subconjunto cuántico (matriz K es O(n²)) | 16 |
-| `--n-test` | subconjunto balanceado para evaluar el QSVM | 30 |
-| `--shots` | shots por par (más = menos ruido en K) | 512 |
+| `--backend` | `pytket-quantinuum` o `qnexus` | pytket-quantinuum |
+| `--n-subset` | subconjunto cuántico de train (16, 32, 64) | 16 |
+| `--features` | columnas a usar (1 por qubit). Default: las 9 | las 9 |
+| `--n-test` | submuestreo balanceado del test (0 = todo) | 30 |
+| `--shots` | shots por circuito | 512 |
 | `--entrelazar` | activa la etapa ZZ (entanglement) | off |
 | `--reps` | repeticiones del feature map | 1 |
-| `--device` | device de Nexus (H1-1E, H2-Emulator, H1-1, ...) | H1-1E |
-| `--project` | nombre del proyecto en Nexus | QSVM-Agua-Potable |
+| `--device` | device de Quantinuum | H2-1E / H2-Emulator |
+| `--project` | proyecto en Nexus (solo `qnexus`) | QSVM-Agua-Potable |
 
-**Empieza simple**: angle encoding, pocos qubits, n pequeño. Solo cuando salgan
-números sube `--n-train`, activa `--entrelazar` y sube `--reps`.
+> **Costo/tiempo**: train envía `n·(n-1)/2` circuitos y test `n_test·n_train`.
+> Con `--n-subset 16 --n-test 30` son ~600 circuitos. Valida antes con
+> `--device H2-1SC` (gratis) y sube el tamaño despacio en el emulador.
 
-> **Ojo con el costo/tiempo en Nexus**: la matriz de train envía `n·(n-1)/2`
-> circuitos y la de test `n_test·n_train`. Con `--n-train 16 --n-test 30` son
-> ~600 circuitos. En emulador es manejable; en hardware real sube el número
-> despacio.
+## Notas del enunciado respetadas
+
+- El subconjunto cuántico se extrae **solo del train** (nunca del test).
+- Las features van **estandarizadas** antes de codificar (el equipo ya lo hizo).
+- Para el informe: reportar **media ± desviación de ≥3 corridas** (variar `--seed`).

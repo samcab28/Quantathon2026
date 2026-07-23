@@ -14,6 +14,26 @@ from pytket import Circuit
 _HALF_TURN = 1.0 / math.pi
 
 
+def build_feature_map(x, n_qubits, entrelazar=False, reps=1):
+    """Circuito del mapa de características φ(x) (sin medición).
+
+    Angle encoding: H + Rz(x_k) por qubit. Con `entrelazar`, añade una etapa
+    ZZ (CX–Rz(x_k·x_{k+1})–CX) en cadena lineal. Se usa para el diagrama de
+    circuito (deliverable de la Parte 3) y como bloque del kernel.
+    """
+    c = Circuit(n_qubits)
+    for _ in range(reps):
+        for k in range(n_qubits):
+            c.H(k)
+            c.Rz(x[k] * _HALF_TURN, k)
+        if entrelazar:
+            for k in range(n_qubits - 1):
+                c.CX(k, k + 1)
+                c.Rz(x[k] * x[k + 1] * _HALF_TURN, k + 1)
+                c.CX(k, k + 1)
+    return c
+
+
 def build_overlap_circuit(xi, xj, n_qubits, entrelazar=False, reps=1):
     """Circuito pytket:  U(x_i) . U(x_j)^dagger  + medición de todos los qubits.
 

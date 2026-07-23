@@ -44,8 +44,22 @@ except (AttributeError, ValueError):
 from .data import cargar_subset_cuantico, subconjunto_balanceado, RNG_SEED
 from .kernel import matriz_kernel, matriz_kernel_cruzada
 from .model import entrenar_qsvm
+from .circuits import build_feature_map
 
 OUT_DIR = "outputs"
+
+
+def _guardar_diagrama_circuito(x, n_qubits, entrelazar, reps, path):
+    """Guarda el diagrama del mapa de características φ(x) (deliverable Parte 3)."""
+    try:
+        from pytket.circuit.display import render_circuit_as_html
+    except ImportError:
+        print("  (pytket.circuit.display no disponible: se omite el diagrama)")
+        return
+    fm = build_feature_map(x, n_qubits, entrelazar, reps)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(render_circuit_as_html(fm))
+    print(f"  Diagrama de circuito guardado en {path}")
 
 
 def _guardar_heatmap(K, path, titulo):
@@ -77,6 +91,11 @@ def main():
     ap.add_argument("--n-test", type=int, default=30,
                     help="submuestreo balanceado del test (<=0 = todo el test)")
     ap.add_argument("--shots", type=int, default=512, help="shots por circuito")
+    ap.add_argument("--escala", type=float, default=0.5,
+                    help="factor de escala de los ángulos. Con datos "
+                         "estandarizados, ~1.0 da un kernel casi-identidad "
+                         "(inútil); 0.3–0.5 da estructura informativa. Es una "
+                         "de las ablaciones de la Parte 4 (feature scaling).")
     ap.add_argument("--entrelazar", action="store_true", help="feature map ZZ")
     ap.add_argument("--reps", type=int, default=1)
     ap.add_argument("--seed", type=int, default=RNG_SEED)
@@ -84,17 +103,24 @@ def main():
                     default="pytket-quantinuum",
                     help="librería de envío al emulador H2")
     ap.add_argument("--device", default=None,
-                    help="device de Quantinuum. Default: H2-1E (pytket) / "
-                         "H2-Emulator (qnexus). H2-1SC = syntax checker gratis.")
+                    help="device de Quantinuum. Default: H2-1 (hardware real). "
+                         "Sufijo E = emulador, SC = syntax checker (gratis).")
     ap.add_argument("--project", default="QSVM-Agua-Potable",
                     help="nombre del proyecto (solo aplica a qnexus)")
+    ap.add_argument("--acepto-hardware", action="store_true",
+                    help="requerido para correr en QPU real (gasta créditos HQC "
+                         "y hace cola). Sin este flag, un device de hardware aborta.")
     args = ap.parse_args()
 
     os.makedirs(OUT_DIR, exist_ok=True)
 
-    # device por defecto según backend
-    device = args.device or ("H2-Emulator" if args.backend == "qnexus" else "H2-1E")
+    # device por defecto según backend (el usuario tiene H2-1 en su cuenta)
+    device = args.device or "H2-1"
     kb = dict(backend=args.backend, device_name=device, project_name=args.project)
+
+    # ¿es hardware real? (los emuladores terminan en 'E', los syntax checker en 'SC')
+    es_hardware = not (device.endswith("E") or device.endswith("SC")
+                       or "Emulator" in device)
 
     # ---------- PASO 1: datos ----------
     print(f"\n[1/3] Cargando subconjunto cuántico (n={args.n_subset}) ...")
@@ -102,8 +128,16 @@ def main():
         n_subset=args.n_subset, features=args.features)
     n_qubits = len(feats)
     Xte, yte = subconjunto_balanceado(X_test, y_test, n=args.n_test, seed=args.seed)
+    # escalar los ángulos (evita kernel casi-identidad; ver --escala)
+    Xq = Xq * args.escala
+    Xte = Xte * args.escala
     print(f"  Features ({n_qubits} -> {n_qubits} qubits): {feats}")
+    print(f"  Escala de ángulos: {args.escala}")
     print(f"  Train cuántico: {len(Xq)}   Test evaluado: {len(Xte)}")
+
+    # diagrama del circuito φ(x) (deliverable Parte 3)
+    _guardar_diagrama_circuito(Xq[0], n_qubits, args.entrelazar, args.reps,
+                               f"{OUT_DIR}/circuito_feature_map.html")
 
     # ---------- PASO 2: matriz de kernel cuántico (en H2) ----------
     print(f"\n[2/3] Kernel cuántico en H2  (backend={args.backend}, device={device}, "
@@ -111,7 +145,27 @@ def main():
     print("  (la 1a vez se pedirá autenticación en Quantinuum)")
     n_pares_tr = len(Xq) * (len(Xq) - 1) // 2
     n_pares_te = len(Xte) * len(Xq)
-    print(f"  Circuitos a enviar: {n_pares_tr} (train) + {n_pares_te} (test)")
+    total_circ = n_pares_tr + n_pares_te
+    print(f"  Circuitos a enviar: {n_pares_tr} (train) + {n_pares_te} (test) "
+          f"= {total_circ}  ({total_circ * args.shots} shots totales)")
+
+    # candado de seguridad para HARDWARE REAL (gasta créditos + cola)
+    if es_hardware and not args.acepto_hardware:
+        print("\n" + "=" * 64)
+        print(f"  ⚠  '{device}' es HARDWARE CUÁNTICO REAL.")
+        print(f"     Enviar {total_circ} circuitos ({total_circ * args.shots} shots)")
+        print(f"     gasta créditos HQC de verdad y entra en cola (horas).")
+        print("")
+        print("  Para correr igualmente en hardware, añade --acepto-hardware.")
+        print("  RECOMENDADO: empieza chico para gastar poco, p. ej.:")
+        print(f"     python run_qsvm.py --device {device} --acepto-hardware \\")
+        print(f"            --n-subset 16 --n-test 8 --shots 100")
+        print("")
+        print("  El reto pide el EMULADOR H2. Si tu cuenta lo tiene por Nexus:")
+        print(f"     python run_qsvm.py --backend qnexus --device H2-Emulator")
+        print(f"     (ver tus devices con:  python run_devices.py)")
+        print("=" * 64)
+        sys.exit(1)
 
     t0 = time.time()
     K_train = matriz_kernel(Xq, n_qubits, args.shots, args.entrelazar,
@@ -138,7 +192,7 @@ def main():
     salida = {
         "backend": args.backend, "device": device, "n_subset": args.n_subset,
         "n_qubits": n_qubits, "features": feats, "shots": args.shots,
-        "entrelazar": args.entrelazar, "reps": args.reps,
+        "escala": args.escala, "entrelazar": args.entrelazar, "reps": args.reps,
         "n_test_evaluado": int(len(Xte)), "qsvm": m,
     }
     with open(f"{OUT_DIR}/qsvm_metrics.json", "w", encoding="utf-8") as f:
