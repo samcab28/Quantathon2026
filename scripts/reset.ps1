@@ -5,10 +5,8 @@
 
 .DESCRIPTION
     Removes (keeping each folder's README.md):
-      - data\processed\*        (imputed/scaled/balanced train-test splits)
-      - data\quantum_subset\*   (16/32/64-sample subsets for Part 3)
-      - results\metrics\*       (classical_baseline.json, classical_optuna.json, ...)
-      - results\figures\*       (confusion matrices, decision boundaries, ...)
+      - data\processed\*        (raw train/test split and split manifest)
+      - data\quantum_subset\*   (paired subset manifest)
     and clears all cell outputs/execution counts in notebooks\*.ipynb
     (via `jupyter nbconvert --clear-output`), so the notebooks look
     unexecuted too.
@@ -16,6 +14,8 @@
     Never touches:
       - data\raw\water_potability.csv (manually downloaded from Kaggle —
         this script cannot re-download it, so it is never deleted)
+      - results\runs\ (immutable experimental evidence)
+      - report\ and slides\ deliverables
       - src\, notebooks\*.ipynb SOURCE CODE, requirements.txt, README.md files
       - .venv\ (unless -RemoveVenv is passed explicitly)
 
@@ -48,9 +48,7 @@ try {
 
     $TargetsToClear = @(
         (Join-Path $Root "data\processed"),
-        (Join-Path $Root "data\quantum_subset"),
-        (Join-Path $Root "results\metrics"),
-        (Join-Path $Root "results\figures")
+        (Join-Path $Root "data\quantum_subset")
     )
 
     Write-Host "This will permanently delete generated files under:" -ForegroundColor Yellow
@@ -104,7 +102,7 @@ try {
 
     Write-Host ""
     Write-Host "Reset complete." -ForegroundColor Green
-    Write-Host "  Run .\scripts\run_all.ps1 (or setup.ps1 + run_notebooks.ps1) to regenerate everything."
+    Write-Host "  Run .\scripts\run_all.ps1 to regenerate prepared data and a new immutable run."
     exit 0
 }
 catch {

@@ -1,12 +1,17 @@
-numpy
-pandas
-scikit-learn
-imbalanced-learn
-matplotlib
-seaborn
-jupyter
-optuna
-pytket
-pytket-quantinuum
-# guppylang  # descomentar si el equipo usa Guppy en vez de / además de Pytket
-# kaggle     # descomentar solo si se decide automatizar la descarga vía API
+# Runtime and reproducibility environment (Python 3.12).
+numpy==2.3.2
+pandas==2.3.1
+scikit-learn==1.7.2
+imbalanced-learn==0.14.0
+matplotlib==3.10.5
+seaborn==0.13.2
+joblib==1.5.1
+PyYAML==6.0.2
+optuna==4.5.0
+jupyter==1.1.1
+nbconvert==7.16.6
+ipykernel==6.30.1
+pytket==2.18.1
+pytket-quantinuum==0.59.1
+pytest==8.4.1
+xgboost==3.3.0

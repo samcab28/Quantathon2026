@@ -32,7 +32,7 @@ try {
     $VenvPython   = Join-Path $Root ".venv\Scripts\python.exe"
     $NotebooksDir = Join-Path $Root "notebooks"
     $CheckScript  = Join-Path $PSScriptRoot "check_notebook_errors.py"
-    $KernelName   = "quantathon-ch2"
+    $KernelName   = "python3"
 
     if (-not (Test-Path $VenvPython)) {
         throw "Virtual environment not found at $VenvPython. Run .\scripts\setup.ps1 first."

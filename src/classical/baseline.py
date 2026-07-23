@@ -1,98 +1,183 @@
-"""Classical RBF-SVM baseline (Challenge 2, Part 2).
-
-Trains an SVM with an RBF kernel, tuned via 5-fold cross-validation over the
-full grid C in {0.1, 1, 10} x gamma in {scale, auto, 0.01}, and reports
-accuracy, precision, recall, F1 and the confusion matrix on the held-out test
-set produced by src/data_prep/prepare_data.py.
-
-Run as a script to regenerate results/metrics/classical_baseline.json and
-results/figures/fig_confusion_matrix_classical.png:
-    python -m src.classical.baseline
-"""
+"""Required, leakage-safe RBF-SVM baseline and trivial controls."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
+import joblib
 import pandas as pd
-from sklearn.metrics import (
-    accuracy_score, confusion_matrix, f1_score, precision_score, recall_score,
-)
+from sklearn.dummy import DummyClassifier
+from sklearn.impute import SimpleImputer
 from sklearn.model_selection import GridSearchCV
-from sklearn.svm import SVC
+from sklearn.pipeline import Pipeline as SklearnPipeline
 
-ROOT = Path(__file__).resolve().parents[2]
-PROCESSED_DIR = ROOT / "data/processed"
-METRICS_DIR = ROOT / "results/metrics"
-FIGURES_DIR = ROOT / "results/figures"
+from src.classical.pipelines import SCORING, build_pipeline, feature_matrix, make_cv
+from src.config import ClassicalConfig, ROOT
+from src.data_prep.prepare_data import SAMPLE_ID, TARGET
+from src.evaluation.metrics import evaluate_model, write_json
+from src.evaluation.plotting import plot_confusion_matrix, plot_roc_pr
 
-PARAM_GRID = {"C": [0.1, 1, 10], "gamma": ["scale", "auto", 0.01]}
-
-
-def load_processed():
-    X_train = pd.read_csv(PROCESSED_DIR / "X_train.csv")
-    X_test = pd.read_csv(PROCESSED_DIR / "X_test.csv")
-    y_train = pd.read_csv(PROCESSED_DIR / "y_train.csv").iloc[:, 0]
-    y_test = pd.read_csv(PROCESSED_DIR / "y_test.csv").iloc[:, 0]
-    return X_train, X_test, y_train, y_test
+PARAM_GRID = {
+    "svc__C": [0.1, 1.0, 10.0],
+    "svc__gamma": ["scale", "auto", 0.01],
+}
 
 
-def train_and_evaluate(X_train, y_train, X_test, y_test):
-    # n_jobs=1: for a dataset this small, spawning a multiprocessing pool
-    # (n_jobs=-1) costs more than it saves, and on Windows it leaves behind
-    # harmless but noisy joblib resource_tracker tracebacks at teardown.
-    grid = GridSearchCV(
-        SVC(kernel="rbf"), PARAM_GRID, cv=5, scoring="f1", n_jobs=1
+def train_required_baseline(
+    train: pd.DataFrame,
+    config: ClassicalConfig,
+) -> GridSearchCV:
+    pipeline = build_pipeline(
+        balance_strategy="undersample",
+        seed=config.cv_seed,
     )
-    grid.fit(X_train, y_train)
-    best_model = grid.best_estimator_
+    search = GridSearchCV(
+        pipeline,
+        PARAM_GRID,
+        cv=make_cv(config.cv_splits, config.cv_seed),
+        scoring=SCORING,
+        refit=config.primary_metric,
+        n_jobs=1,
+        return_train_score=True,
+    )
+    search.fit(feature_matrix(train), train[TARGET])
+    return search
 
-    y_pred = best_model.predict(X_test)
-    metrics = {
-        "best_params": grid.best_params_,
-        "cv_best_f1": float(grid.best_score_),
-        "accuracy": float(accuracy_score(y_test, y_pred)),
-        "precision": float(precision_score(y_test, y_pred)),
-        "recall": float(recall_score(y_test, y_pred)),
-        "f1": float(f1_score(y_test, y_pred)),
-        "confusion_matrix": confusion_matrix(y_test, y_pred).tolist(),
+
+def train_dummy(train: pd.DataFrame) -> SklearnPipeline:
+    model = SklearnPipeline(
+        [
+            ("imputer", SimpleImputer(strategy="median")),
+            ("dummy", DummyClassifier(strategy="most_frequent")),
+        ]
+    )
+    model.fit(feature_matrix(train), train[TARGET])
+    return model
+
+
+def cv_results_frame(search: GridSearchCV) -> pd.DataFrame:
+    columns = [
+        "param_svc__C",
+        "param_svc__gamma",
+        "mean_test_accuracy",
+        "mean_test_balanced_accuracy",
+        "mean_test_precision",
+        "mean_test_recall",
+        "mean_test_f1",
+        "std_test_f1",
+        "mean_test_roc_auc",
+        "mean_test_average_precision",
+        "rank_test_f1",
+    ]
+    return pd.DataFrame(search.cv_results_).loc[:, columns].sort_values(
+        "rank_test_f1"
+    )
+
+
+def run_required_baseline(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    config: ClassicalConfig,
+    run_dir: Path,
+    run_id: str,
+) -> dict[str, object]:
+    model_dir = run_dir / "models"
+    metrics_dir = run_dir / "metrics"
+    predictions_dir = run_dir / "predictions"
+    figures_dir = run_dir / "figures"
+    for directory in (model_dir, metrics_dir, predictions_dir, figures_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    search = train_required_baseline(train, config)
+    cv_frame = cv_results_frame(search)
+    cv_frame.to_csv(metrics_dir / "classical_required_cv.csv", index=False)
+
+    X_test = feature_matrix(test)
+    metrics, predictions = evaluate_model(
+        search.best_estimator_,
+        X_test,
+        test[TARGET],
+        test[SAMPLE_ID],
+        "svm_rbf_required",
+        run_id,
+        config.bootstrap_iterations,
+        config.cv_seed + 1,
+    )
+    metrics["best_params"] = {
+        key.replace("svc__", ""): value for key, value in search.best_params_.items()
     }
-    return best_model, metrics
-
-
-def plot_confusion_matrix(cm, out_path: Path):
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-
-    fig, ax = plt.subplots(figsize=(4, 4))
-    sns.heatmap(
-        cm, annot=True, fmt="d", cmap="Blues", cbar=False,
-        xticklabels=["No potable", "Potable"],
-        yticklabels=["No potable", "Potable"], ax=ax,
+    metrics["cv_best_f1_mean"] = float(search.best_score_)
+    best_index = int(search.best_index_)
+    metrics["cv_best_f1_std"] = float(
+        search.cv_results_["std_test_f1"][best_index]
     )
-    ax.set_xlabel("Predicho")
-    ax.set_ylabel("Real")
-    ax.set_title("SVM-RBF clásica — Matriz de confusión")
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=150)
-    plt.close(fig)
-
-
-def main():
-    METRICS_DIR.mkdir(parents=True, exist_ok=True)
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-
-    X_train, X_test, y_train, y_test = load_processed()
-    _, metrics = train_and_evaluate(X_train, y_train, X_test, y_test)
-
-    with open(METRICS_DIR / "classical_baseline.json", "w") as f:
-        json.dump(metrics, f, indent=2)
-
+    metrics["protocol"] = {
+        "preprocessing": "median imputer -> standard scaler -> undersampling -> SVC",
+        "cv": (
+            f"StratifiedKFold({config.cv_splits}, shuffle=True, "
+            f"random_state={config.cv_seed})"
+        ),
+        "grid": {
+            "C": [0.1, 1.0, 10.0],
+            "gamma": ["scale", "auto", 0.01],
+        },
+        "test_opened_after_selection": True,
+    }
+    write_json(metrics_dir / "classical_required.json", metrics)
+    predictions.to_csv(
+        predictions_dir / "classical_required_predictions.csv", index=False
+    )
+    joblib.dump(search.best_estimator_, model_dir / "classical_required.joblib")
     plot_confusion_matrix(
-        metrics["confusion_matrix"], FIGURES_DIR / "fig_confusion_matrix_classical.png"
+        metrics["confusion_matrix"],
+        "SVM-RBF requerida: matriz de confusión",
+        figures_dir / "classical_required_confusion.png",
+    )
+    plot_roc_pr(
+        predictions,
+        "SVM-RBF requerida",
+        figures_dir / "classical_required_roc_pr.png",
     )
 
-    print(json.dumps(metrics, indent=2))
+    dummy = train_dummy(train)
+    dummy_metrics, dummy_predictions = evaluate_model(
+        dummy,
+        X_test,
+        test[TARGET],
+        test[SAMPLE_ID],
+        "dummy_most_frequent",
+        run_id,
+        config.bootstrap_iterations,
+        config.cv_seed + 2,
+    )
+    write_json(metrics_dir / "dummy_most_frequent.json", dummy_metrics)
+    dummy_predictions.to_csv(
+        predictions_dir / "dummy_most_frequent_predictions.csv", index=False
+    )
+    joblib.dump(dummy, model_dir / "dummy_most_frequent.joblib")
+    return {
+        "required": metrics,
+        "dummy": dummy_metrics,
+        "required_model": search.best_estimator_,
+        "required_predictions": predictions,
+        "dummy_predictions": dummy_predictions,
+    }
+
+
+def main() -> None:
+    from src.config import ExperimentConfig
+    from src.data_prep.prepare_data import load_prepared
+
+    train, test, _ = load_prepared()
+    run_dir = ROOT / "results/runs/manual-classical"
+    result = run_required_baseline(
+        train,
+        test,
+        ExperimentConfig().classical,
+        run_dir,
+        "manual-classical",
+    )
+    print(json.dumps(result["required"], indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

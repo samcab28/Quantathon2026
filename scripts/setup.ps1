@@ -1,13 +1,10 @@
 <#
 .SYNOPSIS
-    Creates the project's virtual environment (if missing) and installs
-    requirements.txt, then registers a project-specific Jupyter kernel.
+    Creates the project's virtual environment and installs pinned dependencies.
 
 .DESCRIPTION
-    Safe to run multiple times: skips venv creation if .venv already exists,
-    and pip install is idempotent. All paths are resolved from this script's
-    own location ($PSScriptRoot), so it works no matter what directory you
-    are in when you call it.
+    Safe to run multiple times. It does not register or mutate a user-wide
+    Jupyter kernel.
 
 .EXAMPLE
     .\scripts\setup.ps1
@@ -25,7 +22,6 @@ try {
     $VenvDir    = Join-Path $Root ".venv"
     $VenvPython = Join-Path $VenvDir "Scripts\python.exe"
     $Requirements = Join-Path $Root "requirements.txt"
-    $KernelName = "quantathon-ch2"
 
     Write-Host "Project root: $Root"
 
@@ -68,14 +64,11 @@ try {
     & $VenvPython -m pip install --default-timeout $PipTimeout -r $Requirements
     if ($LASTEXITCODE -ne 0) { throw "pip install -r requirements.txt failed (exit $LASTEXITCODE)." }
 
-    Write-Host "Registering Jupyter kernel '$KernelName' (points at this venv, not a global default)..."
-    & $VenvPython -m ipykernel install --user --name $KernelName --display-name "Python (Quantathon Ch2 venv)"
-    if ($LASTEXITCODE -ne 0) { throw "ipykernel install failed (exit $LASTEXITCODE)." }
-
     Write-Host ""
     Write-Host "Setup complete." -ForegroundColor Green
-    Write-Host "  - Run the full notebook pipeline: .\scripts\run_notebooks.ps1"
-    Write-Host "  - Or do both setup + run in one call: .\scripts\run_all.ps1"
+    Write-Host "  - Run tests: .\.venv\Scripts\python.exe -m pytest"
+    Write-Host "  - Run smoke pipeline: .\scripts\run_smoke.ps1"
+    Write-Host "  - Run full pipeline: .\scripts\run_all.ps1"
     Write-Host "  - To activate this venv interactively in your shell: . .\scripts\activate.ps1"
     exit 0
 }
