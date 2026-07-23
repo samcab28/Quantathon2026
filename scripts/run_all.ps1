@@ -1,38 +1,39 @@
 <#
 .SYNOPSIS
-    Single entry point: sets up the environment (if needed) and runs the
-    full notebook pipeline, in order. This is the reproducibility entry
-    point required by the challenge submission rules.
+    Reproducible full experiment entry point.
 
 .DESCRIPTION
-    Equivalent to running, in order:
-        .\scripts\setup.ps1
-        .\scripts\run_notebooks.ps1
-    Stops immediately if either step fails.
+    Creates/updates the local virtual environment and executes the immutable
+    full run configured in configs/full.yaml. No user-wide Jupyter kernel is
+    registered.
 
 .EXAMPLE
     .\scripts\run_all.ps1
+    .\scripts\run_all.ps1 -RunId my-final-run
 #>
 [CmdletBinding()]
-param()
+param(
+    [string]$RunId = ""
+)
 
 $ErrorActionPreference = "Stop"
+$Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$VenvPython = Join-Path $Root ".venv\Scripts\python.exe"
 
-try {
-    Write-Host "=== Step 1/2: setup ===" -ForegroundColor Cyan
-    & (Join-Path $PSScriptRoot "setup.ps1")
-    if ($LASTEXITCODE -ne 0) { throw "setup.ps1 failed (exit $LASTEXITCODE)." }
-
-    Write-Host ""
-    Write-Host "=== Step 2/2: run notebooks ===" -ForegroundColor Cyan
-    & (Join-Path $PSScriptRoot "run_notebooks.ps1")
-    if ($LASTEXITCODE -ne 0) { throw "run_notebooks.ps1 failed (exit $LASTEXITCODE)." }
-
-    Write-Host ""
-    Write-Host "Pipeline complete. Check results\metrics\ and results\figures\ for outputs." -ForegroundColor Green
-    exit 0
+& (Join-Path $PSScriptRoot "setup.ps1")
+if ($LASTEXITCODE -ne 0) {
+    throw "Environment setup failed with exit code $LASTEXITCODE."
 }
-catch {
-    Write-Error $_
-    exit 1
+
+$arguments = @(
+    "-m", "src.experiments.run",
+    "--config", "configs/full.yaml"
+)
+if ($RunId) {
+    $arguments += @("--run-id", $RunId)
+}
+
+& $VenvPython @arguments
+if ($LASTEXITCODE -ne 0) {
+    throw "Full experiment failed with exit code $LASTEXITCODE."
 }
