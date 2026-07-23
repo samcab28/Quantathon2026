@@ -10,3 +10,13 @@ map_repeats: 3
 
 subset_sizes: [16, 32, 64]
 repeats: 5
+
+nexus:
+  device_name: null  # corre `python scripts/run_nexus_kernel.py --list-devices`
+  n_shots: 200
+  subset_size: 8
+  project_name: Quantathon-q4s-Challenge2
+  optimisation_level: 1
+  timeout: 1800
+  output_dir: results/output/nexus
+  feature_map: custom
